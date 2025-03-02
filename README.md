@@ -1,7 +1,7 @@
 # PetHunt
 
 <p align="center">
-  <img src="https://via.placeholder.com/150?text=PetHunt" alt="PetHunt Logo" width="150" height="150"/>
+  <img src="assets/logo.png" alt="PetHunt Logo" width="300" height="300"/>
 </p>
 
 <p align="center">
