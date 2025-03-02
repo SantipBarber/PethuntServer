@@ -1,7 +1,7 @@
 # PetHunt
 
 <p align="center">
-  <img src="assets/logo.png" alt="PetHunt Logo" width="300" height="300"/>
+  <img src="assets/circular_logo.png" alt="PetHunt Logo" width="300" height="300"/>
 </p>
 
 <p align="center">
@@ -231,13 +231,36 @@ Para ejecutar los tests:
 
 ## Contribuir
 
-Las contribuciones son bienvenidas. Por favor, sigue estos pasos para contribuir:
+¡Las contribuciones son bienvenidas! En PetHunt, valoramos especialmente las contribuciones relacionadas con:
 
+### Conocimiento sobre mascotas
+- **Datos de especies**: Información científica y educativa sobre diferentes especies
+- **Razas**: Características, cuidados y peculiaridades de razas específicas
+- **Conexiones con APIs**: Integración con repositorios de información sobre animales
+- **Verificación de datos**: Validación de información existente para garantizar precisión
+
+### Desarrollo técnico
+- **Mejoras en el backend**: Optimizaciones, nuevas funcionalidades
+- **Testing**: Ampliación de la cobertura de pruebas
+- **Documentación**: Mejoras en la documentación técnica y de usuario
+
+### Cómo contribuir
 1. Haz un fork del repositorio
-2. Crea una rama para tu característica (`git checkout -b feature/amazing-feature`)
-3. Haz commit de tus cambios (`git commit -m 'Add some amazing feature'`)
-4. Push a la rama (`git push origin feature/amazing-feature`)
-5. Abre un Pull Request
+2. Crea una rama para tu contribución (`git checkout -b feature/amazing-feature`)
+3. Realiza tus cambios y documéntalos adecuadamente
+4. Asegúrate de que todos los tests pasan (`./gradlew test`)
+5. Haz commit de tus cambios (`git commit -m 'Add some amazing feature'`)
+6. Push a tu rama (`git push origin feature/amazing-feature`)
+7. Abre un Pull Request
+
+### Contribución de datos
+Si quieres contribuir con información sobre especies o razas, por favor:
+1. Consulta la estructura de datos en `docs/data-structure.md`
+2. Prepara tus datos en el formato JSON especificado
+3. Incluye referencias a fuentes confiables para verificación
+4. Abre un Pull Request con tus datos en la carpeta `data/contributions/`
+
+El equipo revisará y validará la información antes de incorporarla a la base de datos principal.
 
 ## Licencia
 
