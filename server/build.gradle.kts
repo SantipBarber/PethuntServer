@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.ktor)
+    alias(libs.plugins.kotlinx.serialization)
     application
 }
 
@@ -25,11 +26,16 @@ dependencies {
     implementation(libs.ktor.server.cors)
     implementation(libs.ktor.server.call.logging)
 
-    // PostgreSQL y Exposed
+    // Exposed (todas las dependencias necesarias)
     implementation(libs.exposed.core)
     implementation(libs.exposed.dao)
     implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.kotlin.datetime)
     implementation(libs.exposed.java.time)
+    implementation(libs.exposed.json)
+    implementation(libs.exposed.crypt)
+
+    // PostgreSQL
     implementation(libs.postgres.jdbc)
 
     // MongoDB
@@ -44,9 +50,10 @@ dependencies {
     implementation(libs.koin.ktor)
     implementation(libs.koin.logger)
 
-    // JWT y Seguridad
-    implementation(libs.auth0.jwt)
-    implementation(libs.bcrypt)
+    // Nuevas dependencias
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.cryptography.core)
+    implementation(libs.cryptography.provider.jdk)
 
     // Logging
     implementation(libs.logback)

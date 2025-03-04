@@ -19,3 +19,5 @@ captures
 server/src/main/resources/application.conf
 server/src/main/resources/logback.xml
 .fleet
+# Ignore Gradle build output directory
+build
