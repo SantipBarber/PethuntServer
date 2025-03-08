@@ -1,78 +1,128 @@
 package com.pethunt.server.services
 
 import com.pethunt.server.models.User
+import com.pethunt.server.models.UserCreateDTO
 import com.pethunt.server.models.UserDTO
 import com.pethunt.server.repositories.UserRepository
-import dev.whyoleg.cryptography.CryptographyProvider
-import dev.whyoleg.cryptography.algorithms.SHA512
-import org.slf4j.LoggerFactory
+import io.ktor.server.auth.*
+import org.jetbrains.exposed.sql.transactions.transaction
+import java.util.*
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.toJavaUuid
 
 class UserService(private val repository: UserRepository) {
 
-    private val logger = LoggerFactory.getLogger(this::class.java)
-    private val hasher = CryptographyProvider.Default.get(SHA512).hasher()
+    suspend fun createUser(userDTO: UserCreateDTO): UserDTO {
+        validateEmail(userDTO.email)
+        validateUsername(userDTO.username)
+        validatePassword(userDTO.password)
 
-    suspend fun createUser(userDTO: UserDTO): User? {
-        val existingEmail = repository.findByEmail(userDTO.email)
-        if (existingEmail != null) {
-            throw IllegalArgumentException("Email already registered")
+        repository.findByEmail(userDTO.email)?.let {
+            throw IllegalArgumentException("El email ya está registrado")
         }
 
-        val existingUsername = repository.findByUsername(userDTO.username)
-        if (existingUsername != null) {
-            throw IllegalArgumentException("Username already taken")
+        repository.findByUsername(userDTO.username)?.let {
+            throw IllegalArgumentException("El nombre de usuario ya está en uso")
         }
 
         val passwordHash = hashPassword(userDTO.password)
+
         return repository.create(userDTO, passwordHash)
     }
 
-    suspend fun getUserByEmail(email: String): User? {
-        return repository.findByEmail(email)
-    }
-
-    suspend fun getUserById(id: String): User? {
+    suspend fun getUserById(id: UUID): UserDTO? {
         return repository.findById(id)
     }
 
-    suspend fun validateCredentials(email: String, password: String): User? {
-        val user = repository.findByEmail(email) ?: return null
+    suspend fun getUserByEmail(email: String): UserDTO? {
+        return repository.findByEmail(email)
+    }
 
-        try {
-            // Obtener el hash de contraseña de la base de datos
-            val userWithHash = getUserWithHash(email) ?: return null
+    @OptIn(ExperimentalUuidApi::class)
+    suspend fun validateCredentials(credentials: UserPasswordCredential): UserIdPrincipal? {
+        val user = repository.findByEmail(credentials.name) ?: return null
+        val userId = user.id.toJavaUuid()
 
-            if (verifyPassword(password, userWithHash.second)) {
-                repository.updateLastLogin(user.id.toString())
-                return user
-            }
-        } catch (e: Exception) {
-            logger.error("Error validating credentials", e)
+        if (!verifyPassword(credentials.password, userId)) {
+            return null
         }
 
-        return null
+        repository.updateLastLogin(userId)
+
+        return UserIdPrincipal(user.username)
     }
 
-    private suspend fun getUserWithHash(email: String): Pair<User, String>? {
-        // Esta función debería obtener el usuario con su hash de contraseña
-        // En una implementación real, obtendríamos los datos directamente de la base de datos
-        val user = repository.findByEmail(email) ?: return null
+    @OptIn(ExperimentalUuidApi::class)
+    suspend fun updateUser(id: UUID, userDTO: UserCreateDTO): UserDTO? {
+        validateEmail(userDTO.email)
+        validateUsername(userDTO.username)
 
-        // Aquí estamos simulando la obtención del hash de la base de datos
-        // En una implementación real, esto sería parte de la consulta principal
-        // y no requeriría una consulta separada
-        val passwordHash = "hash_simulado"  // simulación
+        repository.findByEmail(userDTO.email)?.let {
+            if (it.id.toJavaUuid() != id) {
+                throw IllegalArgumentException("El email ya está registrado")
+            }
+        }
 
-        return Pair(user, passwordHash)
+        repository.findByUsername(userDTO.username)?.let {
+            if (it.id.toJavaUuid() != id) {
+                throw IllegalArgumentException("El nombre de usuario ya está en uso")
+            }
+        }
+
+        val updated = repository.update(id, userDTO)
+
+        if (!updated) {
+            return null
+        }
+
+        return repository.findById(id)
     }
 
-    private suspend fun hashPassword(password: String): String {
-        val hashBytes = hasher.hash(password.encodeToByteArray())
-        return hashBytes.joinToString("") { "%02x".format(it) }
+    fun changePassword(id: UUID, currentPassword: String, newPassword: String): Boolean {
+        if (!verifyPassword(currentPassword, id)) {
+            throw IllegalArgumentException("La contraseña actual es incorrecta")
+        }
+
+        validatePassword(newPassword)
+
+        return transaction {
+            val user = User.findById(id) ?: return@transaction false
+            user.passwordHash = hashPassword(newPassword)
+            true
+        }
     }
 
-    private suspend fun verifyPassword(password: String, hash: String): Boolean {
+    private fun hashPassword(password: String): String {
+        return hashPassword(password)
+    }
+
+    private fun verifyPassword(password: String, userId: UUID): Boolean {
+        val user = User.findById(userId) ?: return false
+
         val passwordHash = hashPassword(password)
-        return passwordHash == hash
+        return passwordHash == user.passwordHash
+    }
+
+    private fun validateEmail(email: String) {
+        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@(.+)$")
+        if (!email.matches(emailRegex)) {
+            throw IllegalArgumentException("Formato de email inválido")
+        }
+    }
+
+    private fun validateUsername(username: String) {
+        if (username.length < 3 || username.length > 50) {
+            throw IllegalArgumentException("El nombre de usuario debe tener entre 3 y 50 caracteres")
+        }
+
+        if (!username.matches(Regex("^[a-zA-Z0-9_-]+$"))) {
+            throw IllegalArgumentException("El nombre de usuario solo puede contener letras, números, guiones y guiones bajos")
+        }
+    }
+
+    private fun validatePassword(password: String) {
+        if (password.length < 8) {
+            throw IllegalArgumentException("La contraseña debe tener al menos 8 caracteres")
+        }
     }
 }

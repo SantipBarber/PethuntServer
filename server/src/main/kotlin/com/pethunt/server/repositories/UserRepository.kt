@@ -1,71 +1,101 @@
 package com.pethunt.server.repositories
 
-import com.pethunt.server.config.DatabaseFactory
 import com.pethunt.server.models.User
+import com.pethunt.server.models.UserCreateDTO
 import com.pethunt.server.models.UserDTO
-import com.pethunt.server.models.Users
-import com.pethunt.server.models.toUser
+import com.pethunt.server.models.UsersTable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.datetime.Clock
-import kotlinx.datetime.toJavaInstant
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import java.util.UUID
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
-class UserRepository(private val dbFactory: DatabaseFactory) {
+class UserRepository {
 
-    @OptIn(ExperimentalUuidApi::class)
-    suspend fun create(userDTO: UserDTO, passwordHash: String): User? = dbFactory.dbQuery {
-        val userId = UUID.randomUUID()
-
-        val insertStatement = Users.insert {
-            it[id] = userId
-            it[email] = userDTO.email
-            it[username] = userDTO.username
-            it[Users.passwordHash] = passwordHash
-            it[fullName] = userDTO.fullName
-            it[city] = userDTO.city
-            it[region] = userDTO.region
-            it[country] = userDTO.country
-            // createdAt y updatedAt utilizan los valores por defecto de la tabla
-        }
-
-        insertStatement.resultedValues?.singleOrNull()?.toUser()
+    /**
+     * Crea un nuevo usuario
+     */
+    suspend fun create(userCreateDTO: UserCreateDTO, passwordHash: String): UserDTO = newSuspendedTransaction(Dispatchers.IO) {
+        User.new {
+            email = userCreateDTO.email
+            username = userCreateDTO.username
+            this.passwordHash = passwordHash
+            fullName = userCreateDTO.fullName
+            city = userCreateDTO.city
+            region = userCreateDTO.region
+            country = userCreateDTO.country
+        }.toDTO()
     }
 
-    suspend fun findByEmail(email: String): User? = dbFactory.dbQuery {
-        Users.select { Users.email eq email }
-            .map { it.toUser() }
+    /**
+     * Busca un usuario por email
+     */
+    suspend fun findByEmail(email: String): UserDTO? = newSuspendedTransaction(Dispatchers.IO) {
+        User.find { UsersTable.email eq email }
             .singleOrNull()
+            ?.toDTO()
     }
 
-    suspend fun findByUsername(username: String): User? = dbFactory.dbQuery {
-        Users.select { Users.username eq username }
-            .map { it.toUser() }
+    /**
+     * Busca un usuario por nombre de usuario
+     */
+    suspend fun findByUsername(username: String): UserDTO? = newSuspendedTransaction(Dispatchers.IO) {
+        User.find { UsersTable.username eq username }
             .singleOrNull()
+            ?.toDTO()
     }
 
-    suspend fun findById(id: String): User? = dbFactory.dbQuery {
-        val uuid = UUID.fromString(id)
-        try {
-            Users.select { Users.id eq id }
-                .map { it.toUser() }
-                .singleOrNull()
-        } catch (e: Exception) {
-            null
-        }
+    /**
+     * Busca un usuario por ID
+     */
+    suspend fun findById(id: UUID): UserDTO? = newSuspendedTransaction(Dispatchers.IO) {
+        User.findById(id)?.toDTO()
     }
 
-    @OptIn(ExperimentalUuidApi::class)
-    suspend fun updateLastLogin(id: Uuid): Boolean = dbFactory.dbQuery {
-        try {
-            val uuid = id
-            Users.update({ Users.id eq uuid }) {
-                it[lastLogin] = Clock.System.now().toJavaInstant()
-            } > 0
-        } catch (e: Exception) {
-            false
+    /**
+     * Actualiza el último login de un usuario
+     */
+    suspend fun updateLastLogin(id: UUID): Boolean = newSuspendedTransaction(Dispatchers.IO) {
+        val user = User.findById(id) ?: return@newSuspendedTransaction false
+        user.lastLogin = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        true
+    }
+
+    /**
+     * Actualiza los datos de un usuario
+     */
+    suspend fun update(id: UUID, userDTO: UserCreateDTO): Boolean = newSuspendedTransaction(Dispatchers.IO) {
+        val user = User.findById(id) ?: return@newSuspendedTransaction false
+
+        user.apply {
+            username = userDTO.username
+            email = userDTO.email
+            fullName = userDTO.fullName
+            city = userDTO.city
+            region = userDTO.region
+            country = userDTO.country
+            updatedAt = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
         }
+
+        true
+    }
+
+    /**
+     * Elimina un usuario
+     */
+    suspend fun delete(id: UUID): Boolean = newSuspendedTransaction(Dispatchers.IO) {
+        val user = User.findById(id) ?: return@newSuspendedTransaction false
+        user.delete()
+        true
+    }
+
+    /**
+     * Obtiene todos los usuarios con paginación
+     */
+    suspend fun getAllUsers(limit: Int = 100, offset: Long = 0): List<UserDTO> = newSuspendedTransaction(Dispatchers.IO) {
+        User.all()
+            .limit(limit).offset(offset)
+            .map { it.toDTO() }
     }
 }

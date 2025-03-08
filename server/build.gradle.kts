@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.ktor.server.status.pages)
     implementation(libs.ktor.server.cors)
     implementation(libs.ktor.server.call.logging)
+    implementation(libs.ktor.utils)
 
     // Exposed (todas las dependencias necesarias)
     implementation(libs.exposed.core)
