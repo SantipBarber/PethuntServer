@@ -1,5 +1,6 @@
 package com.pethunt.server.config
 
+import com.pethunt.server.models.PetsTable
 import com.pethunt.server.models.UsersTable
 import io.ktor.server.config.*
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +74,7 @@ class DatabaseFactory(private val config: ApplicationConfig) {
                 }
 
                 // Crear todas las tablas necesarias
-                SchemaUtils.create(UsersTable)
+                SchemaUtils.create(UsersTable, PetsTable)
             }
 
             logger.info("Database initialization completed successfully")

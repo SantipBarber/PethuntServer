@@ -14,9 +14,7 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlin.uuid.toKotlinUuid
 
-/**
- * Definición de la tabla Users con Exposed
- */
+
 object UsersTable : UUIDTable("users") {
     val email = varchar("email", 255).uniqueIndex()
     val passwordHash = varchar("password_hash", 255)
@@ -39,9 +37,6 @@ object UsersTable : UUIDTable("users") {
     val longitude = double("longitude").nullable()
 }
 
-/**
- * Entidad User usando Exposed DAO
- */
 @OptIn(ExperimentalUuidApi::class)
 class User(id: EntityID<UUID>) : UUIDEntity(id) {
     companion object : UUIDEntityClass<User>(UsersTable)
@@ -79,9 +74,6 @@ class User(id: EntityID<UUID>) : UUIDEntity(id) {
     )
 }
 
-/**
- * DTO para transferencia de datos de usuario
- */
 @Serializable
 data class UserDTO @OptIn(ExperimentalUuidApi::class) constructor(
     val id: Uuid,
@@ -96,9 +88,6 @@ data class UserDTO @OptIn(ExperimentalUuidApi::class) constructor(
     val country: String? = null
 )
 
-/**
- * DTO para creación/actualización de usuarios
- */
 @Serializable
 data class UserCreateDTO(
     val email: String,
