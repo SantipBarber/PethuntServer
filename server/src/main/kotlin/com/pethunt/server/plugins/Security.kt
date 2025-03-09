@@ -2,31 +2,32 @@ package com.pethunt.server.plugins
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.pethunt.server.services.UserService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
-import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.response.*
+import org.koin.ktor.ext.inject
+
 
 fun Application.configureSecurity() {
-    // Configuración CORS
-    install(CORS) {
-        allowMethod(HttpMethod.Options)
-        allowMethod(HttpMethod.Put)
-        allowMethod(HttpMethod.Delete)
-        allowMethod(HttpMethod.Patch)
-        allowHeader(HttpHeaders.Authorization)
-        allowHeader(HttpHeaders.ContentType)
-        anyHost() // En producción debería ser más restrictivo
-    }
-
-    // Configuración JWT
+    val userService: UserService by inject<UserService>()
     val jwtSecret = environment.config.property("jwt.secret").getString()
     val jwtIssuer = environment.config.property("jwt.issuer").getString()
     val jwtAudience = environment.config.property("jwt.audience").getString()
     val jwtRealm = environment.config.property("jwt.realm").getString()
 
     install(Authentication) {
+        // Autenticación básica
+        basic("auth-basic") {
+            realm = jwtRealm
+            validate { credentials ->
+                userService.validateCredentials(credentials)
+            }
+        }
+
+        // Autenticación JWT
         jwt("auth-jwt") {
             realm = jwtRealm
             verifier(
@@ -37,14 +38,15 @@ fun Application.configureSecurity() {
             )
 
             validate { credential ->
-                if (credential.payload.getClaim("username").asString() != "") {
+                // Si el claim userId existe y no está vacío, consideramos válido el token
+                if (credential.payload.getClaim("userId").asString().isNotEmpty()) {
                     JWTPrincipal(credential.payload)
                 } else {
                     null
                 }
             }
 
-            challenge { defaultScheme, realm ->
+            challenge { _, _ ->
                 call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Token is not valid or has expired"))
             }
         }

@@ -7,12 +7,9 @@ import io.ktor.server.application.*
 import org.koin.dsl.module
 
 val appModule = module {
-    // Configuración
     single { DatabaseFactory(get<Application>().environment.config) }
-    
-    // Repositorios
-    single { UserRepository(get()) }
-    
-    // Servicios
+
+    single { UserRepository() }
+
     single { UserService(get()) }
 }

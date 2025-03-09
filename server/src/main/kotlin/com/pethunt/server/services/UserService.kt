@@ -6,6 +6,7 @@ import com.pethunt.server.models.UserDTO
 import com.pethunt.server.repositories.UserRepository
 import io.ktor.server.auth.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.springframework.security.crypto.bcrypt.BCrypt
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.toJavaUuid
@@ -38,16 +39,26 @@ class UserService(private val repository: UserRepository) {
         return repository.findByEmail(email)
     }
 
+    /**
+     * Valida las credenciales del usuario
+     */
     @OptIn(ExperimentalUuidApi::class)
     suspend fun validateCredentials(credentials: UserPasswordCredential): UserIdPrincipal? {
-        val user = repository.findByEmail(credentials.name) ?: return null
-        val userId = user.id.toJavaUuid()
+        val user = repository.findByEmail(credentials.name)
+            ?: return null
 
-        if (!verifyPassword(credentials.password, userId)) {
+        // Verificar la contraseña
+        val passwordValid = transaction {
+            val userEntity = User.findById(user.id.toJavaUuid())
+            userEntity != null && BCrypt.checkpw(credentials.password, userEntity.passwordHash)
+        }
+
+        if (!passwordValid) {
             return null
         }
 
-        repository.updateLastLogin(userId)
+        // Actualizar último login
+        repository.updateLastLogin(user.id.toJavaUuid())
 
         return UserIdPrincipal(user.username)
     }
@@ -57,12 +68,14 @@ class UserService(private val repository: UserRepository) {
         validateEmail(userDTO.email)
         validateUsername(userDTO.username)
 
+        // Verificar que el email no esté en uso por otro usuario
         repository.findByEmail(userDTO.email)?.let {
             if (it.id.toJavaUuid() != id) {
                 throw IllegalArgumentException("El email ya está registrado")
             }
         }
 
+        // Verificar que el username no esté en uso por otro usuario
         repository.findByUsername(userDTO.username)?.let {
             if (it.id.toJavaUuid() != id) {
                 throw IllegalArgumentException("El nombre de usuario ya está en uso")
@@ -79,7 +92,13 @@ class UserService(private val repository: UserRepository) {
     }
 
     fun changePassword(id: UUID, currentPassword: String, newPassword: String): Boolean {
-        if (!verifyPassword(currentPassword, id)) {
+        // Verificar que la contraseña actual sea correcta
+        val passwordValid = transaction {
+            val user = User.findById(id) ?: return@transaction false
+            BCrypt.checkpw(currentPassword, user.passwordHash)
+        }
+
+        if (!passwordValid) {
             throw IllegalArgumentException("La contraseña actual es incorrecta")
         }
 
@@ -93,14 +112,7 @@ class UserService(private val repository: UserRepository) {
     }
 
     private fun hashPassword(password: String): String {
-        return hashPassword(password)
-    }
-
-    private fun verifyPassword(password: String, userId: UUID): Boolean {
-        val user = User.findById(userId) ?: return false
-
-        val passwordHash = hashPassword(password)
-        return passwordHash == user.passwordHash
+        return BCrypt.hashpw(password, BCrypt.gensalt())
     }
 
     private fun validateEmail(email: String) {
