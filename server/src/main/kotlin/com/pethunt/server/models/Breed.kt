@@ -1,5 +1,6 @@
 package com.pethunt.server.models
 
+import com.pethunt.server.models.serializers.ObjectIdAsStringSerializer
 import kotlinx.serialization.Serializable
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
@@ -7,6 +8,7 @@ import org.bson.types.ObjectId
 @Serializable
 data class Breed(
     @BsonId
+    @Serializable(with = ObjectIdAsStringSerializer::class)
     val id: String = ObjectId().toString(),
     val speciesId: String,
     val names: List<LocalizedText> = emptyList(),

@@ -1,5 +1,6 @@
 package com.pethunt.server.plugins
 
+import com.pethunt.server.config.MongoFactory
 import com.pethunt.server.routes.*
 import com.pethunt.server.services.BreedService
 import com.pethunt.server.services.PetService
@@ -15,6 +16,7 @@ fun Application.configureRouting() {
     val petService = get<PetService>()
     val speciesService = get<SpeciesService>()
     val breedService = get<BreedService>()
+    val mongoFactory = get<MongoFactory>()
 
     val jwtConfig = JwtConfig(
         environment.config.property("jwt.secret").getString(),
@@ -27,5 +29,6 @@ fun Application.configureRouting() {
         petRoutes(petService)
         speciesRoutes(speciesService)
         breedRoutes(breedService)
+        statusRoutes( mongoFactory)
     }
 }

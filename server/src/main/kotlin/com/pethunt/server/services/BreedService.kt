@@ -3,6 +3,7 @@ package com.pethunt.server.services
 import com.pethunt.server.models.Breed
 import com.pethunt.server.repositories.BreedRepository
 import com.pethunt.server.repositories.SpeciesRepository
+import kotlinx.serialization.Serializable
 import kotlin.math.min
 
 class BreedService(
@@ -128,6 +129,7 @@ class BreedService(
     }
 }
 
+@Serializable
 data class BreedPage(
     val items: List<Breed>,
     val pagination: Pagination

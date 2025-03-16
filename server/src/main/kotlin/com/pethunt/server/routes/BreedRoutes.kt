@@ -54,6 +54,7 @@ fun Route.breedRoutes(breedService: BreedService) {
                     call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
                 } catch (e: Exception) {
                     call.application.log.error("Error creating breed", e)
+                    e.printStackTrace()
                     call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Error interno del servidor"))
                 }
             }

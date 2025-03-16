@@ -73,10 +73,29 @@ PetHunt es una plataforma social centrada en mascotas que permite a los propieta
 
 ### Prerrequisitos
 - JDK 17 o superior
-- PostgreSQL
-- MongoDB
-- Redis
+- PostgreSQL 14+ (requerido)
+- MongoDB 6.0+ (requerido para funcionalidades de especies y razas)
+- Redis 6+ (opcional, para caché y sesiones)
 - Cuenta Firebase (para almacenamiento)
+
+### Guías de instalación de bases de datos
+
+#### macOS (con Homebrew)
+
+```bash
+# PostgreSQL
+brew install postgresql
+brew services start postgresql
+createdb pethunt
+
+# MongoDB
+brew tap mongodb/brew
+brew install mongodb-community
+ brew services start mongodb/brew/mongodb-communitycle
+
+# Redis
+brew install redis
+brew services start redis
 
 ### Instalación y Ejecución
 

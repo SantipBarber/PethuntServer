@@ -2,6 +2,7 @@ package com.pethunt.server.services
 
 import com.pethunt.server.models.Species
 import com.pethunt.server.repositories.SpeciesRepository
+import kotlinx.serialization.Serializable
 import kotlin.math.min
 
 class SpeciesService(private val repository: SpeciesRepository) {
@@ -101,12 +102,13 @@ class SpeciesService(private val repository: SpeciesRepository) {
     }
 }
 
-// DTOs adicionales
+@Serializable
 data class SpeciesPage(
     val items: List<Species>,
     val pagination: Pagination
 )
 
+@Serializable
 data class Pagination(
     val total: Long,
     val page: Int,

@@ -79,9 +79,16 @@ class BreedRepository(private val database: CoroutineDatabase) {
     suspend fun update(id: String, breed: Breed): Boolean {
         return collection.updateOneById(id, breed).modifiedCount > 0
     }
-    
+
     suspend fun delete(id: String): Boolean {
-        return collection.deleteOneById(id).deletedCount > 0
+        try {
+            val result = collection.deleteOneById(id)
+            return result.deletedCount > 0
+        } catch (e: Exception) {
+            println("Error deleting species with ID $id: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
     }
     
     suspend fun count(): Long {

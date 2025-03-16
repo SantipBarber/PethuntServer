@@ -26,10 +26,12 @@ class MongoFactory(
 
     val database: CoroutineDatabase by lazy {
         try {
-            // Intenta leer el nombre de la BD desde la configuración con un valor por defecto
             val dbName = config.propertyOrNull("database.mongodb.database")?.getString() ?: "pethunt"
             logger.info("Using MongoDB database: $dbName")
-            client.getDatabase(dbName)
+            // Asegurarse de que las colecciones estén creadas
+            val db = client.getDatabase(dbName)
+            // Se pueden inicializar las colecciones aquí si es necesario
+            db
         } catch (e: Exception) {
             logger.error("Failed to get MongoDB database: ${e.message}", e)
             throw e

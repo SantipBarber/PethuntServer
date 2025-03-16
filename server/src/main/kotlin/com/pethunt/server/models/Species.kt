@@ -1,5 +1,6 @@
 package com.pethunt.server.models
 
+import com.pethunt.server.models.serializers.ObjectIdAsStringSerializer
 import kotlinx.serialization.Serializable
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
@@ -7,6 +8,7 @@ import org.bson.types.ObjectId
 @Serializable
 data class Species(
     @BsonId
+    @Serializable(with = ObjectIdAsStringSerializer::class)
     val id: String = ObjectId().toString(),
     val type: String,
     val scientificName: String,
@@ -26,11 +28,11 @@ data class LocalizedText(
 
 @Serializable
 data class SpeciesCharacteristics(
-    val size: String,
-    val lifespanMin: Int,
-    val lifespanMax: Int,
-    val weightMin: Double,
-    val weightMax: Double,
+    val size: String = "",
+    val lifespanMin: Int = 0,
+    val lifespanMax: Int = 0,
+    val weightMin: Double = 0.0,
+    val weightMax: Double = 0.0,
     val temperament: List<String> = emptyList(),
     val habitat: List<String> = emptyList(),
     val diet: List<String> = emptyList()

@@ -84,6 +84,18 @@ class DatabaseFactory(private val config: ApplicationConfig) {
         }
     }
 
+    fun testConnection(): Boolean {
+        return try {
+            transaction {
+                exec("SELECT 1")
+            }
+            true
+        } catch (e: Exception) {
+            logger.error("Database connection test failed", e)
+            false
+        }
+    }
+
     suspend fun <T> dbQuery(block: suspend () -> T): T =
         newSuspendedTransaction(Dispatchers.IO) { block() }
 }
