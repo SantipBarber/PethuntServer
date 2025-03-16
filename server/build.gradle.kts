@@ -60,4 +60,13 @@ dependencies {
     // Testing
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.h2.database)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+}
+
+tasks.withType<Test> {
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
 }
