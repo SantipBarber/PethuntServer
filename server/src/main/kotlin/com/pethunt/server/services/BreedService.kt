@@ -1,6 +1,7 @@
 package com.pethunt.server.services
 
 import com.pethunt.server.models.Breed
+import com.pethunt.server.models.PetsTable.speciesId
 import com.pethunt.server.repositories.BreedRepository
 import com.pethunt.server.repositories.SpeciesRepository
 import com.pethunt.server.utils.PaginatedResponse
@@ -9,7 +10,8 @@ import com.pethunt.server.utils.ValidationUtils
 
 class BreedService(
     private val repository: BreedRepository,
-    private val speciesRepository: SpeciesRepository
+    private val speciesRepository: SpeciesRepository,
+    private val cacheService: CacheService
 ) {
 
     suspend fun getAllBreeds(
@@ -28,7 +30,12 @@ class BreedService(
     }
 
     suspend fun getBreedById(id: String): Breed? {
-        return repository.findById(id)
+        val cacheKey = "breed:$id"
+        cacheService.get<Breed>(cacheKey)?.let { return it }
+
+        val breed = repository.findById(id)
+        breed?.let { cacheService.setWithTypeTtl(cacheKey, it) }
+        return breed
     }
 
     suspend fun getBreedsBySpeciesId(
@@ -51,16 +58,21 @@ class BreedService(
         query: String,
         paginationParams: PaginationUtils.PaginationParams
     ): PaginatedResponse<Breed> {
+        val cacheKey = "search:breeds:bySpecies:$speciesId:page:${paginationParams.page}:size:${paginationParams.pageSize}"
+        cacheService.get<PaginatedResponse<Breed>>(cacheKey)?.let { return it }
+
         val offset = PaginationUtils.calculateOffset(paginationParams)
+        val breeds = repository.findBySpeciesId(speciesId.toString(), paginationParams.pageSize, offset.toInt())
+        val total = repository.countBySpeciesId(speciesId.toString())
 
-        val breeds = repository.search(query, paginationParams.pageSize, offset.toInt())
-        val total = repository.count()
-
-        return PaginationUtils.createPaginatedResponse(
+        val response = PaginationUtils.createPaginatedResponse(
             items = breeds,
             params = paginationParams,
             totalItems = total
         )
+
+        cacheService.setWithTypeTtl(cacheKey, response)
+        return response
     }
 
     /**
@@ -123,12 +135,12 @@ class BreedService(
             throw IllegalArgumentException(errors.joinToString(", "))
         }
 
-        // Verificar que la especie existe
-        speciesRepository.findById(breed.speciesId)
-            ?: throw IllegalArgumentException("La especie no existe")
-
         val id = repository.insert(breed)
-        return repository.findById(id) ?: throw IllegalStateException("Error al crear la raza")
+        val createdBreed = repository.findById(id) ?: throw IllegalStateException("Error al crear la raza")
+
+        cacheService.deletePattern("search:breeds*")
+
+        return createdBreed
     }
 
     suspend fun updateBreed(id: String, breed: Breed): Breed? {
@@ -137,19 +149,23 @@ class BreedService(
             throw IllegalArgumentException(errors.joinToString(", "))
         }
 
-        // Verificar que la especie existe
-        speciesRepository.findById(breed.speciesId)
-            ?: throw IllegalArgumentException("La especie no existe")
-
         val updated = repository.update(id, breed)
         if (!updated) {
             return null
         }
 
+        cacheService.delete("breed:$id")
+        cacheService.deletePattern("search:breeds*")
+
         return repository.findById(id)
     }
 
     suspend fun deleteBreed(id: String): Boolean {
-        return repository.delete(id)
+        val deleted = repository.delete(id)
+        if (deleted) {
+            cacheService.delete("breed:$id")
+            cacheService.deletePattern("search:breeds*")
+        }
+        return deleted
     }
 }

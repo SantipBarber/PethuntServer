@@ -6,7 +6,10 @@ import com.pethunt.server.utils.PaginatedResponse
 import com.pethunt.server.utils.PaginationUtils
 import com.pethunt.server.utils.ValidationUtils
 
-class SpeciesService(private val repository: SpeciesRepository) {
+class SpeciesService(
+    private val repository: SpeciesRepository,
+    private val cacheService: CacheService
+) {
 
     suspend fun getAllSpecies(paginationParams: PaginationUtils.PaginationParams): PaginatedResponse<Species> {
         val offset = PaginationUtils.calculateOffset(paginationParams)
@@ -22,7 +25,11 @@ class SpeciesService(private val repository: SpeciesRepository) {
     }
 
     suspend fun getSpeciesById(id: String): Species? {
-        return repository.findById(id)
+        val cacheKey = "species:$id"
+        cacheService.get<Species>(cacheKey)?.let { return it }
+        val species = repository.findById(id)
+        species?.let { cacheService.setWithTypeTtl(cacheKey, it) }
+        return species
     }
 
     suspend fun getSpeciesByType(
@@ -48,7 +55,6 @@ class SpeciesService(private val repository: SpeciesRepository) {
         val offset = PaginationUtils.calculateOffset(paginationParams)
 
         val species = repository.search(query, paginationParams.pageSize, offset.toInt())
-        // Idealmente deberíamos contar solo los resultados de la búsqueda
         val total = repository.count()
 
         return PaginationUtils.createPaginatedResponse(
@@ -113,6 +119,12 @@ class SpeciesService(private val repository: SpeciesRepository) {
     }
 
     suspend fun deleteSpecies(id: String): Boolean {
-        return repository.delete(id)
+        val result = repository.delete(id)
+        if(result) {
+            cacheService.delete("species:$id")
+            // invalidar posibles resultados de búsqueda
+            cacheService.delete("search:species*")
+        }
+        return result
     }
 }

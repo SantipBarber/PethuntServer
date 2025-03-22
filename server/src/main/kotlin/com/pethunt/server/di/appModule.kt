@@ -2,14 +2,12 @@ package com.pethunt.server.di
 
 import com.pethunt.server.config.DatabaseFactory
 import com.pethunt.server.config.MongoFactory
+import com.pethunt.server.config.RedisFactory
 import com.pethunt.server.repositories.BreedRepository
 import com.pethunt.server.repositories.PetRepository
 import com.pethunt.server.repositories.SpeciesRepository
 import com.pethunt.server.repositories.UserRepository
-import com.pethunt.server.services.BreedService
-import com.pethunt.server.services.PetService
-import com.pethunt.server.services.SpeciesService
-import com.pethunt.server.services.UserService
+import com.pethunt.server.services.*
 import io.ktor.server.config.*
 import org.koin.dsl.module
 
@@ -25,6 +23,9 @@ val appModule = module {
 
     single { UserService(get()) }
     single { PetService(get()) }
-    single { SpeciesService(get()) }
-    single { BreedService(get(), get()) }
+    single { SpeciesService(get(), get()) }
+    single { BreedService(get(), get(), get()) }
+
+    single { RedisFactory(get<ApplicationConfig>()) }
+    single { CacheService(get()) }
 }
