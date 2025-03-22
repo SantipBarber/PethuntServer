@@ -2,10 +2,7 @@ package com.pethunt.server.plugins
 
 import com.pethunt.server.config.MongoFactory
 import com.pethunt.server.routes.*
-import com.pethunt.server.services.BreedService
-import com.pethunt.server.services.PetService
-import com.pethunt.server.services.SpeciesService
-import com.pethunt.server.services.UserService
+import com.pethunt.server.services.*
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.get
@@ -17,6 +14,7 @@ fun Application.configureRouting() {
     val speciesService = get<SpeciesService>()
     val breedService = get<BreedService>()
     val mongoFactory = get<MongoFactory>()
+    val storageService = get<StorageService>()
 
     val jwtConfig = JwtConfig(
         environment.config.property("jwt.secret").getString(),
@@ -29,6 +27,7 @@ fun Application.configureRouting() {
         petRoutes(petService)
         speciesRoutes(speciesService)
         breedRoutes(breedService)
-        statusRoutes( mongoFactory)
+        statusRoutes(mongoFactory, storageService)
+        imageRoutes(storageService)
     }
 }

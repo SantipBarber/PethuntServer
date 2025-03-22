@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory
 import redis.clients.jedis.Jedis
 import java.util.concurrent.TimeUnit
 
-class CacheService(val redisFactory: RedisFactory) {
+class CacheService(val redisFactory: RedisFactory, val metricsService: CacheMetricsService) {
     val logger = LoggerFactory.getLogger(this::class.java)
     val json = Json { ignoreUnknownKeys = true }
 
@@ -28,11 +28,18 @@ class CacheService(val redisFactory: RedisFactory) {
     inline fun <reified T> get(key: String): T? {
         return try {
             useJedis { jedis ->
-                val value = jedis.get(key) ?: return@useJedis null
-                json.decodeFromString<T>(value)
+                val value = jedis.get(key)
+                if (value != null) {
+                    metricsService.recordHit(key)
+                    json.decodeFromString<T>(value)
+                } else {
+                    metricsService.recordMiss(key)
+                    null
+                }
             }
         } catch (e: Exception) {
             logger.error("Error getting from cache: $key", e)
+            metricsService.recordMiss(key)
             null
         }
     }

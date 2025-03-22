@@ -63,6 +63,9 @@ dependencies {
     testImplementation(libs.h2.database)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Firebase
+    implementation(libs.firebase.admin)
 }
 
 tasks.withType<Test> {

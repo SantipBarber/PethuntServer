@@ -27,5 +27,8 @@ val appModule = module {
     single { BreedService(get(), get(), get()) }
 
     single { RedisFactory(get<ApplicationConfig>()) }
-    single { CacheService(get()) }
+    single { CacheService(get(), get()) }
+    single { CacheMetricsService() }
+
+    single { StorageService(get()) }
 }

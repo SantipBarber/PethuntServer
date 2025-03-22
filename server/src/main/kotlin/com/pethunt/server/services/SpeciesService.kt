@@ -64,9 +64,6 @@ class SpeciesService(
         )
     }
 
-    /**
-     * Realiza una búsqueda avanzada utilizando múltiples criterios
-     */
     suspend fun advancedSearchSpecies(
         query: String? = null,
         type: String? = null,
@@ -76,6 +73,22 @@ class SpeciesService(
         languages: List<String>? = null,
         paginationParams: PaginationUtils.PaginationParams
     ): PaginatedResponse<Species> {
+        // Crear clave de caché basada en todos los parámetros
+        val cacheKey = buildString {
+            append("search:species:advanced:")
+            append("q=${query ?: ""}")
+            append(":type=${type ?: ""}")
+            append(":temp=${temperament?.joinToString(",") ?: ""}")
+            append(":size=${size ?: ""}")
+            append(":diet=${dietTypes?.joinToString(",") ?: ""}")
+            append(":lang=${languages?.joinToString(",") ?: ""}")
+            append(":page=${paginationParams.page}")
+            append(":size=${paginationParams.pageSize}")
+        }
+
+        // Intentar obtener de caché
+        cacheService.get<PaginatedResponse<Species>>(cacheKey)?.let { return it }
+
         val offset = PaginationUtils.calculateOffset(paginationParams)
 
         val species = repository.advancedSearch(
@@ -87,11 +100,16 @@ class SpeciesService(
             query, type, temperament, size, dietTypes, languages
         )
 
-        return PaginationUtils.createPaginatedResponse(
+        val response = PaginationUtils.createPaginatedResponse(
             items = species,
             params = paginationParams,
             totalItems = total
         )
+
+        // Guardar en caché
+        cacheService.set(cacheKey, response, CacheService.SEARCH_RESULTS_TTL)
+
+        return response
     }
 
     suspend fun createSpecies(species: Species): Species {

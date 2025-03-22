@@ -58,12 +58,12 @@ class BreedService(
         query: String,
         paginationParams: PaginationUtils.PaginationParams
     ): PaginatedResponse<Breed> {
-        val cacheKey = "search:breeds:bySpecies:$speciesId:page:${paginationParams.page}:size:${paginationParams.pageSize}"
+        val cacheKey = "search:breeds:query:${query}:page:${paginationParams.page}:size:${paginationParams.pageSize}"
         cacheService.get<PaginatedResponse<Breed>>(cacheKey)?.let { return it }
 
         val offset = PaginationUtils.calculateOffset(paginationParams)
-        val breeds = repository.findBySpeciesId(speciesId.toString(), paginationParams.pageSize, offset.toInt())
-        val total = repository.countBySpeciesId(speciesId.toString())
+        val breeds = repository.search(query, paginationParams.pageSize, offset.toInt())
+        val total = repository.count()
 
         val response = PaginationUtils.createPaginatedResponse(
             items = breeds,
@@ -75,9 +75,6 @@ class BreedService(
         return response
     }
 
-    /**
-     * Realiza una búsqueda avanzada utilizando múltiples criterios
-     */
     suspend fun advancedSearchBreeds(
         query: String? = null,
         speciesId: String? = null,
@@ -90,6 +87,25 @@ class BreedService(
         maxWeight: Double? = null,
         paginationParams: PaginationUtils.PaginationParams
     ): PaginatedResponse<Breed> {
+        // Crear clave de caché basada en todos los parámetros
+        val cacheKey = buildString {
+            append("search:breeds:advanced:")
+            append("q=${query ?: ""}")
+            append(":species=${speciesId ?: ""}")
+            append(":size=${size ?: ""}")
+            append(":temp=${temperament?.joinToString(",") ?: ""}")
+            append(":colors=${colors?.joinToString(",") ?: ""}")
+            append(":coat=${coatTypes?.joinToString(",") ?: ""}")
+            append(":lang=${languages?.joinToString(",") ?: ""}")
+            append(":minW=${minWeight ?: ""}")
+            append(":maxW=${maxWeight ?: ""}")
+            append(":page=${paginationParams.page}")
+            append(":size=${paginationParams.pageSize}")
+        }
+
+        // Intentar obtener de caché
+        cacheService.get<PaginatedResponse<Breed>>(cacheKey)?.let { return it }
+
         val offset = PaginationUtils.calculateOffset(paginationParams)
 
         val breeds = repository.advancedSearch(
@@ -102,11 +118,16 @@ class BreedService(
             languages, minWeight, maxWeight
         )
 
-        return PaginationUtils.createPaginatedResponse(
+        val response = PaginationUtils.createPaginatedResponse(
             items = breeds,
             params = paginationParams,
             totalItems = total
         )
+
+        // Guardar en caché
+        cacheService.set(cacheKey, response, CacheService.SEARCH_RESULTS_TTL)
+
+        return response
     }
 
     suspend fun searchBreedsByCharacteristics(
