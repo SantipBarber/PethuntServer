@@ -3,134 +3,153 @@ package com.pethunt.server.services
 import com.pethunt.server.models.Breed
 import com.pethunt.server.repositories.BreedRepository
 import com.pethunt.server.repositories.SpeciesRepository
-import kotlinx.serialization.Serializable
-import kotlin.math.min
+import com.pethunt.server.utils.PaginatedResponse
+import com.pethunt.server.utils.PaginationUtils
+import com.pethunt.server.utils.ValidationUtils
 
 class BreedService(
     private val repository: BreedRepository,
     private val speciesRepository: SpeciesRepository
 ) {
-    
-    suspend fun getAllBreeds(page: Int = 1, pageSize: Int = 20): BreedPage {
-        val limit = min(pageSize, 100) // Máximo 100 por página
-        val skip = (page - 1) * limit
-        
-        val breeds = repository.findAll(limit, skip)
+
+    suspend fun getAllBreeds(
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Breed> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val breeds = repository.findAll(paginationParams.pageSize, offset.toInt())
         val total = repository.count()
-        
-        return BreedPage(
+
+        return PaginationUtils.createPaginatedResponse(
             items = breeds,
-            pagination = Pagination(
-                total = total,
-                page = page,
-                pageSize = limit,
-                pages = (total + limit - 1) / limit
-            )
+            params = paginationParams,
+            totalItems = total
         )
     }
-    
+
     suspend fun getBreedById(id: String): Breed? {
         return repository.findById(id)
     }
-    
-    suspend fun getBreedsBySpeciesId(speciesId: String, page: Int = 1, pageSize: Int = 20): BreedPage {
-        val limit = min(pageSize, 100) // Máximo 100 por página
-        val skip = (page - 1) * limit
-        
-        val breeds = repository.findBySpeciesId(speciesId, limit, skip)
+
+    suspend fun getBreedsBySpeciesId(
+        speciesId: String,
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Breed> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val breeds = repository.findBySpeciesId(speciesId, paginationParams.pageSize, offset.toInt())
         val total = repository.countBySpeciesId(speciesId)
-        
-        return BreedPage(
+
+        return PaginationUtils.createPaginatedResponse(
             items = breeds,
-            pagination = Pagination(
-                total = total,
-                page = page,
-                pageSize = limit,
-                pages = (total + limit - 1) / limit
-            )
+            params = paginationParams,
+            totalItems = total
         )
     }
-    
-    suspend fun searchBreeds(query: String, page: Int = 1, pageSize: Int = 20): BreedPage {
-        val limit = min(pageSize, 100) // Máximo 100 por página
-        val skip = (page - 1) * limit
-        
-        val breeds = repository.search(query, limit, skip)
-        val total = repository.count() // Idealmente deberíamos contar solo los resultados de la búsqueda
-        
-        return BreedPage(
+
+    suspend fun searchBreeds(
+        query: String,
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Breed> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val breeds = repository.search(query, paginationParams.pageSize, offset.toInt())
+        val total = repository.count()
+
+        return PaginationUtils.createPaginatedResponse(
             items = breeds,
-            pagination = Pagination(
-                total = total,
-                page = page,
-                pageSize = limit,
-                pages = (total + limit - 1) / limit
-            )
+            params = paginationParams,
+            totalItems = total
         )
     }
-    
+
+    /**
+     * Realiza una búsqueda avanzada utilizando múltiples criterios
+     */
+    suspend fun advancedSearchBreeds(
+        query: String? = null,
+        speciesId: String? = null,
+        size: String? = null,
+        temperament: List<String>? = null,
+        colors: List<String>? = null,
+        coatTypes: List<String>? = null,
+        languages: List<String>? = null,
+        minWeight: Double? = null,
+        maxWeight: Double? = null,
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Breed> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val breeds = repository.advancedSearch(
+            query, speciesId, size, temperament, colors, coatTypes,
+            languages, minWeight, maxWeight, paginationParams.pageSize, offset.toInt()
+        )
+
+        val total = repository.countAdvancedSearch(
+            query, speciesId, size, temperament, colors, coatTypes,
+            languages, minWeight, maxWeight
+        )
+
+        return PaginationUtils.createPaginatedResponse(
+            items = breeds,
+            params = paginationParams,
+            totalItems = total
+        )
+    }
+
     suspend fun searchBreedsByCharacteristics(
         size: String? = null,
         temperament: String? = null,
-        page: Int = 1,
-        pageSize: Int = 20
-    ): BreedPage {
-        val limit = min(pageSize, 100) // Máximo 100 por página
-        val skip = (page - 1) * limit
-        
-        val breeds = repository.searchByCharacteristics(size, temperament, limit, skip)
-        val total = repository.count() // Idealmente deberíamos contar solo los resultados de la búsqueda
-        
-        return BreedPage(
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Breed> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val breeds = repository.searchByCharacteristics(
+            size, temperament, paginationParams.pageSize, offset.toInt()
+        )
+
+        val total = repository.count()
+
+        return PaginationUtils.createPaginatedResponse(
             items = breeds,
-            pagination = Pagination(
-                total = total,
-                page = page,
-                pageSize = limit,
-                pages = (total + limit - 1) / limit
-            )
+            params = paginationParams,
+            totalItems = total
         )
     }
-    
+
     suspend fun createBreed(breed: Breed): Breed {
-        validateBreed(breed)
-        
+        val errors = ValidationUtils.validateBreed(breed)
+        if (errors.isNotEmpty()) {
+            throw IllegalArgumentException(errors.joinToString(", "))
+        }
+
+        // Verificar que la especie existe
+        speciesRepository.findById(breed.speciesId)
+            ?: throw IllegalArgumentException("La especie no existe")
+
         val id = repository.insert(breed)
         return repository.findById(id) ?: throw IllegalStateException("Error al crear la raza")
     }
-    
+
     suspend fun updateBreed(id: String, breed: Breed): Breed? {
-        validateBreed(breed)
-        
+        val errors = ValidationUtils.validateBreed(breed)
+        if (errors.isNotEmpty()) {
+            throw IllegalArgumentException(errors.joinToString(", "))
+        }
+
+        // Verificar que la especie existe
+        speciesRepository.findById(breed.speciesId)
+            ?: throw IllegalArgumentException("La especie no existe")
+
         val updated = repository.update(id, breed)
         if (!updated) {
             return null
         }
-        
+
         return repository.findById(id)
     }
-    
+
     suspend fun deleteBreed(id: String): Boolean {
         return repository.delete(id)
     }
-    
-    private suspend fun validateBreed(breed: Breed) {
-        if (breed.speciesId.isBlank()) {
-            throw IllegalArgumentException("El ID de la especie no puede estar vacío")
-        }
-        
-        // Verificar que la especie existe
-        val species = speciesRepository.findById(breed.speciesId)
-            ?: throw IllegalArgumentException("La especie no existe")
-        
-        if (breed.names.isEmpty()) {
-            throw IllegalArgumentException("Debe proporcionar al menos un nombre para la raza")
-        }
-    }
 }
-
-@Serializable
-data class BreedPage(
-    val items: List<Breed>,
-    val pagination: Pagination
-)

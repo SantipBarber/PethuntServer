@@ -2,116 +2,117 @@ package com.pethunt.server.services
 
 import com.pethunt.server.models.Species
 import com.pethunt.server.repositories.SpeciesRepository
-import kotlinx.serialization.Serializable
-import kotlin.math.min
+import com.pethunt.server.utils.PaginatedResponse
+import com.pethunt.server.utils.PaginationUtils
+import com.pethunt.server.utils.ValidationUtils
 
 class SpeciesService(private val repository: SpeciesRepository) {
-    
-    suspend fun getAllSpecies(page: Int = 1, pageSize: Int = 20): SpeciesPage {
-        val limit = min(pageSize, 100) // Máximo 100 por página
-        val skip = (page - 1) * limit
-        
-        val species = repository.findAll(limit, skip)
+
+    suspend fun getAllSpecies(paginationParams: PaginationUtils.PaginationParams): PaginatedResponse<Species> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val species = repository.findAll(paginationParams.pageSize, offset.toInt())
         val total = repository.count()
-        
-        return SpeciesPage(
+
+        return PaginationUtils.createPaginatedResponse(
             items = species,
-            pagination = Pagination(
-                total = total,
-                page = page,
-                pageSize = limit,
-                pages = (total + limit - 1) / limit
-            )
+            params = paginationParams,
+            totalItems = total
         )
     }
-    
+
     suspend fun getSpeciesById(id: String): Species? {
         return repository.findById(id)
     }
-    
-    suspend fun getSpeciesByType(type: String, page: Int = 1, pageSize: Int = 20): SpeciesPage {
-        val limit = min(pageSize, 100) // Máximo 100 por página
-        val skip = (page - 1) * limit
-        
-        val species = repository.findByType(type, limit, skip)
+
+    suspend fun getSpeciesByType(
+        type: String,
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Species> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val species = repository.findByType(type, paginationParams.pageSize, offset.toInt())
         val total = repository.countByType(type)
-        
-        return SpeciesPage(
+
+        return PaginationUtils.createPaginatedResponse(
             items = species,
-            pagination = Pagination(
-                total = total,
-                page = page,
-                pageSize = limit,
-                pages = (total + limit - 1) / limit
-            )
+            params = paginationParams,
+            totalItems = total
         )
     }
-    
-    suspend fun searchSpecies(query: String, page: Int = 1, pageSize: Int = 20): SpeciesPage {
-        val limit = min(pageSize, 100) // Máximo 100 por página
-        val skip = (page - 1) * limit
-        
-        val species = repository.search(query, limit, skip)
-        val total = repository.count() // Idealmente deberíamos contar solo los resultados de la búsqueda
-        
-        return SpeciesPage(
+
+    suspend fun searchSpecies(
+        query: String,
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Species> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val species = repository.search(query, paginationParams.pageSize, offset.toInt())
+        // Idealmente deberíamos contar solo los resultados de la búsqueda
+        val total = repository.count()
+
+        return PaginationUtils.createPaginatedResponse(
             items = species,
-            pagination = Pagination(
-                total = total,
-                page = page,
-                pageSize = limit,
-                pages = (total + limit - 1) / limit
-            )
+            params = paginationParams,
+            totalItems = total
         )
     }
-    
+
+    /**
+     * Realiza una búsqueda avanzada utilizando múltiples criterios
+     */
+    suspend fun advancedSearchSpecies(
+        query: String? = null,
+        type: String? = null,
+        temperament: List<String>? = null,
+        size: String? = null,
+        dietTypes: List<String>? = null,
+        languages: List<String>? = null,
+        paginationParams: PaginationUtils.PaginationParams
+    ): PaginatedResponse<Species> {
+        val offset = PaginationUtils.calculateOffset(paginationParams)
+
+        val species = repository.advancedSearch(
+            query, type, temperament, size, dietTypes, languages,
+            paginationParams.pageSize, offset.toInt()
+        )
+
+        val total = repository.countAdvancedSearch(
+            query, type, temperament, size, dietTypes, languages
+        )
+
+        return PaginationUtils.createPaginatedResponse(
+            items = species,
+            params = paginationParams,
+            totalItems = total
+        )
+    }
+
     suspend fun createSpecies(species: Species): Species {
-        validateSpecies(species)
-        
+        val errors = ValidationUtils.validateSpecies(species)
+        if (errors.isNotEmpty()) {
+            throw IllegalArgumentException(errors.joinToString(", "))
+        }
+
         val id = repository.insert(species)
         return repository.findById(id) ?: throw IllegalStateException("Error al crear la especie")
     }
-    
+
     suspend fun updateSpecies(id: String, species: Species): Species? {
-        validateSpecies(species)
-        
+        val errors = ValidationUtils.validateSpecies(species)
+        if (errors.isNotEmpty()) {
+            throw IllegalArgumentException(errors.joinToString(", "))
+        }
+
         val updated = repository.update(id, species)
         if (!updated) {
             return null
         }
-        
+
         return repository.findById(id)
     }
-    
+
     suspend fun deleteSpecies(id: String): Boolean {
         return repository.delete(id)
     }
-    
-    private fun validateSpecies(species: Species) {
-        if (species.type.isBlank()) {
-            throw IllegalArgumentException("El tipo de especie no puede estar vacío")
-        }
-        
-        if (species.scientificName.isBlank()) {
-            throw IllegalArgumentException("El nombre científico no puede estar vacío")
-        }
-        
-        if (species.commonNames.isEmpty()) {
-            throw IllegalArgumentException("Debe proporcionar al menos un nombre común")
-        }
-    }
 }
-
-@Serializable
-data class SpeciesPage(
-    val items: List<Species>,
-    val pagination: Pagination
-)
-
-@Serializable
-data class Pagination(
-    val total: Long,
-    val page: Int,
-    val pageSize: Int,
-    val pages: Long
-)
